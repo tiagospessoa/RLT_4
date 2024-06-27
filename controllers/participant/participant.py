@@ -7,6 +7,7 @@ robot = Robot()
 
 # Get the time step of the current world.
 timestep = int(robot.getBasicTimeStep())
+print (timestep)
 
 # Initialize base motors.
 wheels = []
@@ -26,12 +27,12 @@ armMotors.append(robot.getDevice("arm1"))
 armMotors.append(robot.getDevice("arm2"))
 armMotors.append(robot.getDevice("arm3"))
 armMotors.append(robot.getDevice("arm4"))
-armMotors.append(robot.getDevice("arm5"))
+armMotors.append(robot.getDevice("arm5"))  
 # Set the maximum motor velocity.
 armMotors[0].setVelocity(0.2)
 armMotors[1].setVelocity(0.5)
 armMotors[2].setVelocity(0.5)
-armMotors[3].setVelocity(0.3)
+armMotors[3].setVelocity(1.2)
 
 # Initialize arm position sensors.
 # These sensors can be used to get the current joint position and monitor the joint movements.
@@ -48,32 +49,43 @@ for sensor in armPositionSensors:
 finger1 = robot.getDevice("finger1")
 finger2 = robot.getDevice("finger2")
 # Set the maximum motor velocity.
-finger1.setVelocity(0.03)
-finger2.setVelocity(0.03)
+finger1.setVelocity(0.05)
+finger2.setVelocity(0.05)
 # Read the minium and maximum position of the gripper motors.
 fingerMinPosition = finger1.getMinPosition()
 fingerMaxPosition = finger1.getMaxPosition()
 
+#temporizador = angulo percorrido/omega
+#angulo percorrido = 520*0.016*7 = 58.24 rad
+#distancia percorrida = raio roda * angulo percorrido
+#distancia percorrida = 0.05*58.24 = 2.912m
+#https://github.com/cyberbotics/pick-and-place-competition/blob/main/controllers/participant/participant.py#L61
+omega=12.0 #mudar este valor para os valores pedidos no enunciado
+angulo_percorrido=2.912/0.05
+
+temporizador = angulo_percorrido/omega
 # Move forward.
 for wheel in wheels:
-    wheel.setVelocity(7.0)
+    wheel.setVelocity(omega)
 # Wait until the robot is in front of the box.
-robot.step(520 * timestep)
+robot.step(int(temporizador*1000)+16)
 
 # Stop moving forward.
 for wheel in wheels:
     wheel.setVelocity(0.0)
 
 # Move arm and open gripper.
+armMotors[0].setPosition(0.05)
 armMotors[1].setPosition(-0.55)
-armMotors[2].setPosition(-0.9)
-armMotors[3].setPosition(-1.5)
+armMotors[2].setPosition(-0.95)
+armMotors[3].setPosition(-1.35)
 finger1.setPosition(fingerMaxPosition)
 finger2.setPosition(fingerMaxPosition)
 
-# Monitor the arm joint position to detect when the motion is completed.
+# Controlo em malha fechada, utilizando o sensor de posição do angulo do motor
+delta_angulo = 0.15
 while robot.step(timestep) != -1:
-    if abs(armPositionSensors[3].getValue() - (-1.2)) < 0.01:
+    if abs(armPositionSensors[3].getValue() - (-1.5)) < delta_angulo:
         # Motion completed.
         break
 
@@ -89,17 +101,36 @@ armMotors[1].setPosition(0)
 robot.step(200 * timestep)
 
 # Rotate the robot.
-wheels[0].setVelocity(2.5)
-wheels[1].setVelocity(-2.5)
-wheels[2].setVelocity(2.5)
-wheels[3].setVelocity(-2.5)
-# Wait for a fixed amount to step that the robot rotates.
-robot.step(690 * timestep)
+#temporizador = 690*.016= 11.04seg
+#angulo rotacao = omega * temporizador
+#angulo rotacao = 2.5*11.04 = 27.6 radianos
+#https://github.com/cyberbotics/pick-and-place-competition/blob/main/controllers/participant/participant.py#L97
 
+omega_rot = 7
+temporizador_rot = 27.5/omega_rot
+wheels[0].setVelocity(omega_rot)
+wheels[1].setVelocity(-omega_rot)
+wheels[2].setVelocity(omega_rot)
+wheels[3].setVelocity(-omega_rot)
+# Wait for a fixed amount to step that the robot rotates.
+robot.step(int(temporizador_rot*1000))
+
+for wheel in wheels:
+    wheel.setVelocity(0.0)
+#andar para a frente
+#temporizador = angulo percorrido/omega
+#angulo percorrido = 900*0.016*2.5 = 36 rad
+#distancia percorrida = raio roda * angulo percorrido
+#distancia percorrida = 0.05*36 = 1.8m
 # Move forward.
-wheels[1].setVelocity(2.5)
-wheels[3].setVelocity(2.5)
-robot.step(900 * timestep)
+omega=2.5
+angulo_percorrido=1.8/0.05
+temporizador = angulo_percorrido/omega
+wheels[0].setVelocity(omega)
+wheels[1].setVelocity(omega)
+wheels[3].setVelocity(omega)
+wheels[2].setVelocity(omega)
+robot.step(int(temporizador*1000))
 
 # Rotate the robot.
 wheels[0].setVelocity(1.0)
@@ -133,10 +164,14 @@ for wheel in wheels:
 armMotors[3].setPosition(0)
 armMotors[2].setPosition(-0.3)
 robot.step(200 * timestep)
-
 armMotors[1].setPosition(-1.0)
-robot.step(200 * timestep)
 
+delta_angulo = 0.20
+while robot.step(timestep) != -1:
+    if abs(armPositionSensors[1].getValue() - (-1.0)) < delta_angulo:
+        # Motion completed.
+        break
+        
 armMotors[3].setPosition(-1.0)
 robot.step(200 * timestep)
 
@@ -147,3 +182,8 @@ robot.step(50 * timestep)
 finger1.setPosition(fingerMaxPosition)
 finger2.setPosition(fingerMaxPosition)
 robot.step(50 * timestep)
+
+# Lift arm.
+armMotors[1].setPosition(0)
+# Wait until the arm is lifted.
+robot.step(200 * timestep)
